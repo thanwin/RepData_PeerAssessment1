@@ -1,25 +1,113 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "RepData_PeerAssessment1"
+author: "Than Win"
+date: "Friday, April 10, 2015"
+output: html_document
 ---
 
+##Loading and preprocessing the data
+1. Load the data
+```{r}
+activity <- read.csv(unz("activity.zip", "activity.csv"))
+```
 
-## Loading and preprocessing the data
+2. Process/transform the data (if necessary) into a format suitable for the analysis
 
+```{r}
+activity$date <- as.Date(activity$date, "%Y-%m-%d")
+```
 
+##What is mean total number of steps taken per day?
+1.Calculate the total number of steps taken per day
+```{r}
+library(dplyr)
+total_spd <- group_by(activity, date) %>% summarize(steps = sum(steps, na.rm = TRUE)) %>% filter(steps != 0)
+mean_total_spd <- mean(total_spd$steps)
+median_total_spd <- median(total_spd$steps)
+```
+2. Histogram of the total number of steps taken each day
+```{r}
+hist(total_spd$steps, breaks=10)
+abline(v=mean_total_spd, col = c("red"))
+abline(v=median_total_spd, col = c("blue"), lty = 2)
+```
 
-## What is mean total number of steps taken per day?
+3. Calculate and report the mean and median of the total number of steps taken per day
+```{r}
+mean_total_spd <- mean(total_spd$steps)
+mean_total_spd
+median_total_spd <- median(total_spd$steps)
+median_total_spd
+```
+##What is the average daily activity pattern?
+1. a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+```{r}
+average_spi <- group_by(activity, interval) %>% summarize(steps = mean(steps, na.rm = TRUE)) %>% filter(steps != 0)
+max_average_spi <- filter(average_spi, steps == max(steps))
 
+with(average_spi,
+     plot(interval, steps, type='l'
+          , main="Average number of steps taken all day"
+          , xlab="5-minute interval"
+          , ylab="Average steps")
+     )
+abline(h=max_average_spi$steps, col = c("red"))
+abline(v=max_average_spi$interval, col = c("blue"))
+```
+2. Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+```{r}
+max_average_spi <- filter(average_spi, steps == max(steps))
+max_average_spi
+```
+##Imputing missing values
+1. Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+```{r}
+index <- which(is.na(activity$steps))
+length(index)
+```
+2/3. Devise a strategy for filling in all of the missing values in the dataset. Create a new dataset that is equal to the original dataset but with the missing data filled in.
+```{r}
+new_activity <- activity
+new_activity[index, 1] <- average_spi[as.factor(activity[index, 3]), 2]
+```
+4. A histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. 
+```{r}
+new_total_spd <- group_by(new_activity, date) %>% summarize(steps = sum(steps, na.rm = TRUE)) %>% filter(steps != 0)
+new_mean_total_spd <- mean(new_total_spd$steps)
+new_median_total_spd <- median(new_total_spd$steps)
 
+hist(new_total_spd$steps, breaks=10)
+abline(v=new_mean_total_spd, col = c("red"))
+abline(v=new_median_total_spd, col = c("blue"), lty = 2)
+```
 
-## What is the average daily activity pattern?
+Do these values differ from the estimates from the first part of the assignment?
+```{r}
+mean_total_spd
+new_mean_total_spd
 
+median_total_spd
+new_median_total_spd
+```
+What is the impact of imputing missing data on the estimates of the total daily number of steps?
+```{r}
+length(index)
+new_index <- which(is.na(new_activity$steps))
+length(new_index)
+```
+##Are there differences in activity patterns between weekdays and weekends?
+1. Create a new factor variable in the dataset with two levels - "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
+```{r}
+library(lubridate)
+week_activity <- new_activity
+week_activity$day <- wday(new_activity$date)
+week_activity <- mutate(week_activity, week = ifelse((day == 1 | day == 7), "weekend", "weekday"))
+```
+2. Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). See the README file in the GitHub repository to see an example of what this plot should look like using simulated data.
+```{r}
+week_spi <- group_by(week_activity, interval, week) %>% summarize(steps = mean(steps, na.rm = TRUE)) %>% filter(steps != 0)
+max_week_spi <- filter(week_spi, steps == max(steps))
 
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
+library(ggplot2)
+ggplot(data=week_spi, aes(x=interval, y=steps, group=week)) + geom_line(aes(color=week)) + facet_wrap(~ week, nrow=2)
+```
